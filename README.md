@@ -172,6 +172,7 @@ Make sure the Hardhat node is running and the contract is deployed.
 
 MIT
 
+```bash
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -479,3 +480,23 @@ MIT
 
   </body>
 </html>
+
+```
+
+practicle 4 commands
+
+```bash
+npm init -y
+```
+
+```bash
+npm install --save-dev hardhat@2.22.15
+```
+
+```bash
+npx hardhat init
+```
+
+```bash
+npx hardhat node
+```
