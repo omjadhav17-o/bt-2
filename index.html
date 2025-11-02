@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>WavePortal DApp</title>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.0/dist/ethers.umd.min.js"></script>
+    <style>
+      body {
+        font-family: Arial;
+        text-align: center;
+        padding: 20px;
+        background-color: #f8f9fa;
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 16px;
+        border: none;
+        background-color: #007bff;
+        color: white;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      button:hover {
+        background-color: #0056b3;
+      }
+      textarea,
+      input {
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        padding: 8px;
+      }
+      #status {
+        margin-top: 15px;
+        font-weight: bold;
+      }
+      #output {
+        margin-top: 20px;
+        text-align: left;
+        width: 80%;
+        margin-left: auto;
+        margin-right: auto;
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+      }
+      .wave-card {
+        padding: 10px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #ddd;
+      }
+      .loading {
+        color: orange;
+      }
+      .success {
+        color: green;
+      }
+      .error {
+        color: red;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>👋 Welcome to WavePortal!</h1>
+
+    <button id="connectWallet">Connect Wallet</button><br /><br />
+
+    <input
+      id="contractAddress"
+      type="text"
+      placeholder="Enter deployed contract address"
+      style="width: 300px"
+    /><br /><br />
+
+    <textarea
+      id="message"
+      placeholder="Type your wave message"
+      rows="3"
+      cols="40"
+    ></textarea
+    ><br /><br />
+    <button id="sendWave">Send Wave 🌊</button><br /><br />
+
+    <button id="getWaves">Get All Waves</button>
+
+    <p id="status"></p>
+    <div id="output"></div>
+
+    <script>
+      let provider, signer, contract;
+      const abi = [
+        "function wave(string _message) public",
+        "function getAllWaves() public view returns(tuple(address waver,string message,uint256 timestamp)[])",
+      ];
+
+      const status = document.getElementById("status");
+
+      function showStatus(msg, type = "") {
+        status.textContent = msg;
+        status.className = type;
+      }
+
+      // Connect to MetaMask
+      document.getElementById("connectWallet").onclick = async () => {
+        try {
+          if (!window.ethereum) {
+            alert("Install MetaMask first!");
+            return;
+          }
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+          provider = new ethers.BrowserProvider(window.ethereum);
+          signer = await provider.getSigner();
+          const address = await signer.getAddress();
+          showStatus("✅ Wallet connected: " + address, "success");
+        } catch (error) {
+          showStatus("❌ Connection failed!", "error");
+        }
+      };
+
+      // Send a wave (transaction)
+      document.getElementById("sendWave").onclick = async () => {
+        const address = document.getElementById("contractAddress").value;
+        const message = document.getElementById("message").value;
+
+        if (!address || !message) {
+          showStatus(
+            "⚠️ Please enter both contract address and message.",
+            "error"
+          );
+          return;
+        }
+
+        try {
+          showStatus("⏳ Sending wave transaction...", "loading");
+
+          contract = new ethers.Contract(address, abi, signer);
+          const tx = await contract.wave(message);
+          showStatus("⛓️ Waiting for transaction to confirm...", "loading");
+
+          await tx.wait();
+
+          showStatus("✅ Wave sent successfully!", "success");
+
+          // Display recent transaction info
+          document.getElementById("output").innerHTML =
+            `<div class='wave-card'>
+              <strong>🆔 Tx Hash:</strong> <a href="https://sepolia.etherscan.io/tx/${
+                tx.hash
+              }" target="_blank">${tx.hash}</a><br>
+              <strong>💬 Message:</strong> ${message}<br>
+              <strong>⏰ Time:</strong> ${new Date().toLocaleString()}
+            </div>` + document.getElementById("output").innerHTML;
+        } catch (error) {
+          console.error(error);
+          showStatus("❌ Error sending wave. Check console.", "error");
+        }
+      };
+
+      // Get all waves (read from blockchain)
+      document.getElementById("getWaves").onclick = async () => {
+        const address = document.getElementById("contractAddress").value;
+
+        if (!address) {
+          showStatus("⚠️ Please enter contract address.", "error");
+          return;
+        }
+
+        try {
+          showStatus("⏳ Fetching all waves...", "loading");
+          contract = new ethers.Contract(address, abi, provider);
+          const waves = await contract.getAllWaves();
+
+          if (!waves.length) {
+            document.getElementById("output").innerHTML = "No waves yet!";
+            showStatus("✅ No waves found yet.", "success");
+            return;
+          }
+
+          let html = "";
+          for (const w of waves) {
+            const date = new Date(Number(w.timestamp) * 1000);
+            html += `
+              <div class='wave-card'>
+                <strong>👤 From:</strong> ${w.waver}<br>
+                <strong>💬 Message:</strong> ${w.message}<br>
+                <strong>🕒 Time:</strong> ${date.toLocaleString()}
+              </div>`;
+          }
+
+          document.getElementById("output").innerHTML = html;
+          showStatus(`✅ Loaded ${waves.length} waves!`, "success");
+        } catch (error) {
+          console.error(error);
+          showStatus("❌ Error fetching waves.", "error");
+        }
+      };
+    </script>
+  </body>
+</html>
